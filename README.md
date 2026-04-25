@@ -105,9 +105,9 @@ cmake --build build -j$(sysctl -n hw.logicalcpu) --target llama-quantize
 ./third_party/llama.cpp/build/bin/llama-quantize ./gguf_models/qwen/qwen2.5-vl-3b-instrct-f16.gguf ./gguf_models/qwen/qwen2.5-vl-3b-instrct-q8_0.gguf Q8_0
 ```
 
-## 第四步：c++ 工程，实现调用
+## 第三步：c++ 工程，实现调用
 
-## 第五部：benchmark（性能、内存、CPU 利用率等）
+## 第四步：benchmark（性能、内存、CPU 利用率等）
 
 | 字段 | 说明 |
 |------|------|
