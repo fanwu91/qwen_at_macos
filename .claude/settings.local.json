@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Read(//Users/fan/.cache/modelscope/hub/models/Qwen/**)",
+      "WebFetch(domain:github.com)"
+    ],
+    "additionalDirectories": [
+      "/Users/fan/dev/qwen_at_macos"
+    ]
+  }
+}
