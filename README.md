@@ -105,14 +105,107 @@ cmake --build build -j$(sysctl -n hw.logicalcpu) --target llama-quantize
 ./third_party/llama.cpp/build/bin/llama-quantize ./gguf_models/qwen/qwen2.5-vl-3b-instrct-f16.gguf ./gguf_models/qwen/qwen2.5-vl-3b-instrct-q8_0.gguf Q8_0
 ```
 
-## 第三步：c++ 工程，实现调用
+## 第三步：编译 C++ benchmark 工程
 
-## 第四步：benchmark（性能、内存、CPU 利用率等）
+项目根目录已有 `CMakeLists.txt` 和 `src/benchmark.cpp`，直接编译即可。
+
+```bash
+# 在项目根目录执行
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(sysctl -n hw.logicalcpu)
+```
+
+编译成功后，可执行文件位于 `./build/benchmark`。
+
+### 快速验证（单张图片，1 次，32 tokens）
+
+```bash
+./build/benchmark --runs 1 --n-predict 32
+```
+
+正常输出示例（stderr）：
+
+```
+found 1 image(s)
+benchmarking test01.jpeg ...
+  run 1/1: ttft=33385.7ms decode=11.27 tps
+results written to ./results/qwen2.5-vl-3b-instrct-f16_20260425_120000.json
+```
+
+## 第四步：运行 benchmark
+
+### 默认参数（5 次取平均，256 tokens）
+
+```bash
+./build/benchmark
+```
+
+默认使用：
+- 模型：`./gguf_models/qwen/qwen2.5-vl-3b-instrct-f16.gguf`
+- mmproj：`./gguf_models/qwen/mmproj-qwen2.5-vl-3b-instruct-f16.gguf`
+- 图片目录：`./images`（支持 `.jpg`/`.jpeg`/`.png`，按文件名排序）
+- prompt：`"Describe this image."`
+- 输出：`./results/<模型名>_<时间戳>.json`
+
+### 全部参数说明
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--model` | `gguf_models/qwen/qwen2.5-vl-3b-instrct-f16.gguf` | 主模型路径 |
+| `--mmproj` | `gguf_models/qwen/mmproj-qwen2.5-vl-3b-instruct-f16.gguf` | 视觉编码器路径 |
+| `--image-dir` | `./images` | 图片目录 |
+| `--prompt` | `"Describe this image."` | 固定 prompt |
+| `--runs` | `5` | 每张图片推理次数（取平均） |
+| `--n-predict` | `256` | 最大生成 token 数 |
+| `--ctx-size` | `4096` | context window 大小 |
+| `--n-threads` | `4` | CPU 线程数 |
+| `--output` | 自动生成 | 指定输出 JSON 路径 |
+
+### 批量测试 100 张图片
+
+将图片命名为 `test001.jpeg`、`test002.jpeg` ... 放入 `images/` 目录，直接运行：
+
+```bash
+./build/benchmark
+```
+
+### 输出 JSON 格式
+
+结果保存在 `results/` 目录，文件名格式为 `<模型名>_<时间戳>.json`，例如：
+
+```
+results/qwen2.5-vl-3b-instrct-f16_20260425_120000.json
+```
+
+```json
+{
+  "model": "./gguf_models/qwen/qwen2.5-vl-3b-instrct-f16.gguf",
+  "mmproj": "./gguf_models/qwen/mmproj-qwen2.5-vl-3b-instruct-f16.gguf",
+  "prompt": "Describe this image.",
+  "n_predict": 256,
+  "ctx_size": 4096,
+  "runs_per_image": 5,
+  "results": [
+    {
+      "image": "test01.jpeg",
+      "ttft_ms": 33385.72,
+      "prefill_tps": 33.46,
+      "decode_tps": 11.27,
+      "rss_mb": 8144.8,
+      "cpu_util_pct": 397.3,
+      "n_prefill_tokens": 1117,
+      "n_decode_tokens": 256
+    }
+  ]
+}
+```
+
+### 指标说明
 
 | 字段 | 说明 |
 |------|------|
-| `ttft_ms` | 首 token 延迟（毫秒），文本 prefill 耗时 |
-| `prefill_tps` | prefill 吞吐量（tokens/sec） |
+| `ttft_ms` | 首 token 延迟（毫秒），从 prefill 开始到第一个 token 生成 |
+| `prefill_tps` | prefill 吞吐量（tokens/sec），含图片编码 |
 | `decode_tps` | decode 吞吐量（tokens/sec） |
 | `rss_mb` | 进程物理内存（MB），与 Activity Monitor 一致 |
-| `cpu_util_pct` | decode 阶段 CPU 利用率（%） |
+| `cpu_util_pct` | decode 阶段 CPU 利用率（%），4 线程满载约 400% |

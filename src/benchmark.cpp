@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
 #include <dirent.h>
 #include <fstream>
 #include <string>
@@ -83,7 +84,7 @@ struct Args {
     std::string mmproj   = "./gguf_models/qwen/mmproj-qwen2.5-vl-3b-instruct-f16.gguf";
     std::string image_dir = "./images";
     std::string prompt   = "Describe this image.";
-    std::string output   = "./results/benchmark.json";
+    std::string output   = "";
     int runs      = 5;
     int n_predict = 256;
     int ctx_size  = 4096;
@@ -128,7 +129,22 @@ static Args parse_args(int argc, char ** argv) {
 int main(int argc, char ** argv) {
     Args args = parse_args(argc, argv);
 
-    // 1. load model
+    // auto-generate output filename: results/<model_stem>_<quant>_<timestamp>.json
+    if (args.output.empty()) {
+        // extract stem from model path (e.g. "qwen2.5-vl-3b-instrct-f16")
+        std::string stem = args.model;
+        auto slash = stem.rfind('/');
+        if (slash != std::string::npos) stem = stem.substr(slash + 1);
+        auto dot = stem.rfind('.');
+        if (dot != std::string::npos) stem = stem.substr(0, dot);
+
+        // timestamp
+        std::time_t t = std::time(nullptr);
+        char ts[32];
+        std::strftime(ts, sizeof(ts), "%Y%m%d_%H%M%S", std::localtime(&t));
+
+        args.output = "./results/" + stem + "_" + ts + ".json";
+    }
     llama_model_params mparams = llama_model_default_params();
     mparams.n_gpu_layers = 0; // CPU only
     llama_model * model = llama_model_load_from_file(args.model.c_str(), mparams);

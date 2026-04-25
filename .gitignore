@@ -1,3 +1,4 @@
 models/
 gguf_models/
 build/
+results/
